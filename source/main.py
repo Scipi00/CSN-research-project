@@ -1,8 +1,9 @@
-import sympy as sy
-import numpy as np
-import igraph as ig
 import random
 import math
+import numpy as np
+import igraph as ig
+from critical_benefit_cost import critical_benefit_cost
+from joblib import Parallel, delayed
 
 def mix_directed(P, G): #Make G directed and make a proportion P of the graph not mutially directed
     sample = random.sample(list(range(G.ecount())),math.floor(G.ecount()*P))
@@ -26,7 +27,6 @@ def generate_ER(N, P, avgK):
     G = ig.Graph.Erdos_Renyi(n=N, p = avgK/N, directed=False, loops=False)
     if (not G.is_connected()):
         print("Graph not connected")
-    check_avg_degree(G)
     G = mix_directed(P,G)
     return G
 
@@ -40,7 +40,6 @@ def generate_RR(N ,P, avgK):
 def generate_BA(N ,P, avgK):
     #m1 = (-2*(N+1) + math.sqrt(4*(N+1)**2 -4*2*avgK*(N+1)))/(-4)
     M = math.floor(23/36*avgK - 53/30) #Suitable approximation for our input
-
     G = ig.Graph.Barabasi(N, m = M, outpref=False, directed=False, power=1, zero_appeal=1, implementation='psumtree', start_from=None)
     if (not G.is_connected()):
         print("Graph not connected")
@@ -54,18 +53,21 @@ def generate_WS(N ,P, avgK):
     G = mix_directed(P,G)
     return G
 
+def main():
+    N = 100
+    P = [.5,.1]#[1.,.9,.67,.5,.1,.0]
+    K = [20,40]#[20,40,48,50,52,54,56]
+    #mBA = [11,23,28,30,31,32,34]
 
-N = 100
-P = 0.5
-K =   [20,40,48,50,52,54,56]
-mBA = [11,23,28,30,31,32,34]
-mBA_dic = dict(zip(K,mBA))
+    def experiment(P_i,K_i):
+        G = generate_WS(N,P_i,K_i)
+        check_avg_degree(G)
+        return critical_benefit_cost(G,G)
 
-for m1 in mBA:
 
-    G = ig.Graph.Barabasi(N, m = m1, outpref=False, directed=False, power=1, zero_appeal=1, implementation='psumtree', start_from=None)
-    check_avg_degree(G)
+    results = Parallel(n_jobs=-1, prefer="threads")(delayed(experiment)(P_i,K_i) for P_i in P for K_i in K)
+    results = np.array(results).reshape(len(P),len(K))
+    print(results)
 
-for i in K:
-    G = generate_BA(N,P,i)
-    check_avg_degree(G)
+if __name__ == "__main__":
+    main()
