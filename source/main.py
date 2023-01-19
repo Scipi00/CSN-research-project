@@ -107,7 +107,7 @@ def generate_RR(N, P, avgK):
 
 def generate_BA(N, P, avgK):
     #m1 = (-2*(N+1) + math.sqrt(4*(N+1)**2 -4*2*avgK*(N+1)))/(-4)
-    M = math.floor(23/36*avgK - 53/30)  # Suitable approximation for our input
+    M = math.floor(23/36*avgK - 531/300)  # Suitable approximation for our input
     G = ig.Graph.Barabasi(N, m=M, outpref=False, directed=False, power=1,
                           zero_appeal=1, implementation='psumtree', start_from=None)
     if (not G.is_connected()):
@@ -136,10 +136,15 @@ def main():
         check_avg_degree(G)
         return critical_benefit_cost(G, G)
 
-    results = Parallel(n_jobs=-2, prefer="threads")(delayed(experiment)
+    ti = time.perf_counter()
+    print(ti)
+
+    results = Parallel(n_jobs=4, prefer="threads")(delayed(experiment)
                                                     (P_i, K_i) for P_i in P for K_i in K)
     results = np.array(results).reshape(len(P), len(K))
     print(results)
+    ti =  time.perf_counter() - ti
+    print("Total table time"+ str(ti))
 
 
 if __name__ == "__main__":
