@@ -1,7 +1,7 @@
 import igraph as ig
 import numpy as np
 from math import floor
-from random import shuffle, sample
+from random import shuffle, sample, seed
 from time import perf_counter
 from joblib import Parallel, delayed
 
@@ -245,11 +245,43 @@ def main_experiment_celebrities():
 
 
 def main_experiment_communities():
+    N = 100
+    P = [1., .9, .67, .5, .1, .0]
+    K = [6, 8, 10, 15]
 
-    return 0
+    def experiment_comm(P_i, K_i):
+        G = generate_RR(100, P_i, K_i)
+        while not G.is_connected():
+            G = generate_RR(100, P_i, K_i)
+        H = G.as_undirected()
+        communities = H.community_fastgreedy().as_clustering()
+        H = community_to_clique(H,communities)
+        H = mix_directed(P_i,H)
+        print(avg_degree(G), avg_degree(H), K_i)
+        return critical_benefit_cost(G, H)
 
+    ti = perf_counter()
+    results_comm = Parallel(n_jobs=4, prefer="threads")(delayed(experiment_comm)
+                                                          (P_i, K_i) for P_i in P for K_i in K)
+    results_comm = np.array(results_comm).reshape(len(P), len(K))
+    print(results_comm)
+    np.save('data_comm.npy', results_comm)  # save
+    np.savetxt("data_comm.csv", results_comm, fmt='%10.1f', delimiter=",")
+    # new_num_arr = np.load('data.npy') # load
+    ti = perf_counter() - ti
+    print("Total table time comm" + str(ti))
+
+def community_to_clique(H,communities):
+    for community in communities:
+        edges_clique = []
+        for i in community:
+            for j in community:
+                if i < j:
+                    edges_clique.append((i,j))
+        H.add_edges(edges_clique)
+    return H.simplify()
 
 if __name__ == "__main__":
     # main_experiment_replication()
-    main_experiment_celebrities()
-    # main_experiment_communities()
+    # main_experiment_celebrities()
+    main_experiment_communities()
