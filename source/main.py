@@ -23,7 +23,7 @@ def critical_benefit_cost(G, H):
     pi = np.linalg.solve(coeff, const)
 
     # sistema de equaciones para encontrar tau_ij
-    coeff = np.zeros((N*N, N*N))
+    coeff = np.zeros((N*N,N*N))
     const = -1*np.ones(N*N)
     for i in range(N):
         const[i*N+i] = 0
@@ -32,7 +32,6 @@ def critical_benefit_cost(G, H):
             if i == j:
                 m = p*0.5 - np.eye(N)
                 vec = np.zeros((1, N))
-                # print(vec)
                 vec[:, i] = 1
                 m[i, :] = vec
             else:
@@ -51,19 +50,21 @@ def critical_benefit_cost(G, H):
     print("start")
     ti = time.perf_counter()
     for i in range(N):
+        pi_i = pi[i]
         for j in range(N):
             if i != j:
+                p_ij = p[i, j]
                 for k in range(N):
+                    tau_jk = tau[j, k]
                     if j != k:
-                        u0 += pi[i] * p[i, j] * tau[j, k] * A_h[k, j]
+                        u0 += pi_i * p_ij * tau_jk * A_h[k, j]
+                    p_ik = p[i, k]
                     for l in range(N):
                         if i != k and k != l:
                             if j != k:
-                                v2 += pi[i] * p[i, j] * \
-                                    p[i, k] * tau[j, k] * A_h[k, l]
+                                v2 += pi_i * p_ij * p_ik * tau_jk * A_h[k, l]
                             if j != l:
-                                u2 += pi[i] * p[i, j] * \
-                                    p[i, k] * tau[j, l] * A_h[l, k]
+                                u2 += pi_i * p_ij * p_ik * tau[j, l] * A_h[l, k]
     ti = time.perf_counter() - ti
     print(ti)
 
@@ -73,7 +74,6 @@ def critical_benefit_cost(G, H):
 def mix_directed(P, G):  # Make G directed and make a proportion P of the graph not mutially directed
     sample = random.sample(list(range(G.ecount())), math.floor(G.ecount()*P))
     sample = G.es[sample]
-    # print(G.ecount())
     G = ig.Graph.as_directed(G, "mutual")
     for e in sample:
         v1_v2 = [e.source, e.target]
@@ -83,11 +83,8 @@ def mix_directed(P, G):  # Make G directed and make a proportion P of the graph 
     return G
 
 
-def check_avg_degree(G):
-    k = np.mean(G.as_undirected().degree(mode='all', loops=False))
-    print(k)
-    return k
-
+def avg_degree(G):
+    return np.mean(G.as_undirected().degree(mode='all', loops=False))
 
 def generate_ER(N, P, avgK):
     G = ig.Graph.Erdos_Renyi(n=N, p=avgK/N, directed=False, loops=False)
@@ -125,27 +122,100 @@ def generate_WS(N, P, avgK):
     return G
 
 
+def rewiring(G,r):
+    #retrieve degree from r
+    #H deepcopy G
+    #for all edged (i,j) in G and while H connected:
+        #i is origin j is target
+        #if toss coin with prob r rewire
+            #generate aproppiate neighbourhood of i in H
+            #retrieve score degree of neighbours in G
+            #normalize degrees
+            #select new random origin
+    return G
+
 def main():
+    #global experiment parameters
     N = 100
     P = [1.,.9,.67,.5,.1,.0]
     K = [20,40,48,50,52,54,56]
     #mBA = [11,23,28,30,31,32,34]
+    is_downstream = False #downstream or upstream
 
-    def experiment(P_i, K_i):
+    def experiment_ER(P_i, K_i):
         G = generate_ER(N, P_i, K_i)
-        check_avg_degree(G)
-        return critical_benefit_cost(G, G)
+        print(avg_degree(G),K_i)
+        H = G.copy()
+        if not is_downstream:
+            H.reverse_edges()
+        return critical_benefit_cost(G, H)
 
     ti = time.perf_counter()
-    print(ti)
-
-    results = Parallel(n_jobs=4, prefer="threads")(delayed(experiment)
+    results_ER = Parallel(n_jobs=-1, prefer="threads")(delayed(experiment_ER)
                                                     (P_i, K_i) for P_i in P for K_i in K)
-    results = np.array(results).reshape(len(P), len(K))
-    print(results)
+    results_ER = np.array(results_ER).reshape(len(P), len(K))
+    print(results_ER)
+    np.save('data_ER.npy', results_ER) # save
+    np.savetxt("data_ER.csv", results_ER, fmt='%10.1f', delimiter=",")
+    #new_num_arr = np.load('data.npy') # load
     ti =  time.perf_counter() - ti
-    print("Total table time"+ str(ti))
+    print("Total table time ER"+ str(ti))
 
+    def experiment_RR(P_i, K_i):
+        G = generate_RR(N, P_i, K_i)
+        print(avg_degree(G),K_i)
+        H = G.copy()
+        if not is_downstream:
+            H.reverse_edges()
+        return critical_benefit_cost(G, H)
+    ti = time.perf_counter()
+    results_RR = Parallel(n_jobs=-1, prefer="threads")(delayed(experiment_RR)
+                                                    (P_i, K_i) for P_i in P for K_i in K)
+    results_RR = np.array(results_RR).reshape(len(P), len(K))
+    print(results_RR)
+    np.save('data_RR.npy', results_RR) # save
+    np.savetxt("data_RR.csv", results_RR, fmt='%10.1f', delimiter=",")
+    #new_num_arr = np.load('data.npy') # load
+    ti =  time.perf_counter() - ti
+    print("Total table time RR"+ str(ti))
+
+    def experiment_BA(P_i, K_i):
+        G = generate_BA(N, P_i, K_i)
+        print(avg_degree(G),K_i)
+        H = G.copy()
+        if not is_downstream:
+            H.reverse_edges()
+        return critical_benefit_cost(G, H)
+    
+    ti = time.perf_counter()
+    results_BA = Parallel(n_jobs=-1, prefer="threads")(delayed(experiment_BA)
+                                                    (P_i, K_i) for P_i in P for K_i in K)
+    results_BA = np.array(results_BA).reshape(len(P), len(K))
+    print(results_BA)
+    np.save('data_BA.npy', results_BA) # save
+    np.savetxt("data_BA.csv", results_BA, fmt='%10.1f', delimiter=",")
+    #new_num_arr = np.load('data.npy') # load
+    ti =  time.perf_counter() - ti
+    print("Total table time BA"+ str(ti))
+
+    def experiment_WS(P_i, K_i):
+        G = generate_WS(N, P_i, K_i)
+        print(avg_degree(G),K_i)
+        H = G.copy()
+        if not is_downstream:
+            H.reverse_edges()
+        return critical_benefit_cost(G, H)
+    
+    ti = time.perf_counter()
+    results_WS = Parallel(n_jobs=-1, prefer="threads")(delayed(experiment_WS)
+                                                    (P_i, K_i) for P_i in P for K_i in K)
+    results_WS = np.array(results_WS).reshape(len(P), len(K))
+    print(results_WS)
+    np.save('data_WS.npy', results_WS) # save
+    np.savetxt("data_WS.csv", results_WS, fmt='%10.1f', delimiter=",")
+    #new_num_arr = np.load('data.npy') # load
+    ti =  time.perf_counter() - ti
+    print("Total table time WS"+ str(ti))
 
 if __name__ == "__main__":
     main()
