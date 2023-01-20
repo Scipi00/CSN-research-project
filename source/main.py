@@ -134,19 +134,19 @@ def rewiring(G,r):
             #select new random origin
     return G
 
-def main():
+def main_experiment_replication():
     #global experiment parameters
     N = 100
     P = [1.,.9,.67,.5,.1,.0]
     K = [20,40,48,50,52,54,56]
     #mBA = [11,23,28,30,31,32,34]
-    is_downstream = False #downstream or upstream
+    downstream = False #downstream or upstream
 
     def experiment_ER(P_i, K_i):
         G = generate_ER(N, P_i, K_i)
         print(avg_degree(G),K_i)
         H = G.copy()
-        if not is_downstream:
+        if not downstream:
             H.reverse_edges()
         return critical_benefit_cost(G, H)
 
@@ -165,7 +165,7 @@ def main():
         G = generate_RR(N, P_i, K_i)
         print(avg_degree(G),K_i)
         H = G.copy()
-        if not is_downstream:
+        if not downstream:
             H.reverse_edges()
         return critical_benefit_cost(G, H)
     ti = time.perf_counter()
@@ -183,7 +183,7 @@ def main():
         G = generate_BA(N, P_i, K_i)
         print(avg_degree(G),K_i)
         H = G.copy()
-        if not is_downstream:
+        if not downstream:
             H.reverse_edges()
         return critical_benefit_cost(G, H)
     
@@ -202,7 +202,7 @@ def main():
         G = generate_WS(N, P_i, K_i)
         print(avg_degree(G),K_i)
         H = G.copy()
-        if not is_downstream:
+        if not downstream:
             H.reverse_edges()
         return critical_benefit_cost(G, H)
     
@@ -217,5 +217,31 @@ def main():
     ti =  time.perf_counter() - ti
     print("Total table time WS"+ str(ti))
 
+def main_experiment_celebrities():
+    N = 100
+    P = [1.,.9,.67,.5,.1,.0]
+    K = [20,40,48,50,52,54,56]
+    #mBA = [11,23,28,30,31,32,34]
+
+    def experiment(P_i, K_i):
+        G = generate_RR(N, P_i, K_i)
+        H = generate_BA(N, P_i, K_i)
+        print(avg_degree(G),avg_degree(H),K_i)
+        return critical_benefit_cost(G, H)
+
+    ti = time.perf_counter()
+    results = Parallel(n_jobs=1, prefer="threads")(delayed(experiment)
+                                                    (P_i, K_i) for P_i in P for K_i in K)
+    results = np.array(results).reshape(len(P), len(K))
+    print(results)
+    ti =  time.perf_counter() - ti
+    print("Total table time"+ str(ti))
+
+def main_experiment_communities():
+
+    return 0
+
 if __name__ == "__main__":
-    main()
+    #main_experiment_replication()
+    main_experiment_celebrities()
+    #main_experiment_communities()
